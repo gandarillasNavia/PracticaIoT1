@@ -134,18 +134,19 @@ private:
             yellowLed.off();
             status = " -- Blue is on";
         }
-        else if (distance <=200){
+        else if (distance <= 200){
             redLed.on();
             yellowLed.on();
             greenLed.off();
             blueLed.off();
             status = " -- Red & Yellow are on";
         }
-        else if (status ==  "Out of specified range"){
+        else if (distance > 200){
             redLed.off();
             yellowLed.off();
             greenLed.off();
             blueLed.off();
+            status = " Out of specified range";
         }
         
         Serial.print("Distance: ");
