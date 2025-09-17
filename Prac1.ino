@@ -1,63 +1,70 @@
 #include <Arduino.h>
+// pins
+const int TRIG_PIN = 14;
+const int ECHO_PIN = 27;
+const int RED_LED_PIN = 26;
+const int GREEN_LED_PIN = 33;
+const int YELLOW_LED_PIN = 25;
+const int BLUE_LED_PIN = 32;
 
 class Led {
 public:
-    Led(int pin) : _pin(pin), _state(LOW), _blinking(false), _lastToggleTime(0), _blinkInterval(500) {
-        pinMode(_pin, OUTPUT);
+    Led(int pin_arg) : pin(pin_arg), state(LOW), blinking(false), lastToggleTime(0), blinkInterval(500) {
+        pinMode(pin, OUTPUT);
         off();
     }
 
     void on() {
-        _state = HIGH;
-        _blinking = false;
-        digitalWrite(_pin, _state);
+        state = HIGH;
+        blinking = false; 
+        digitalWrite(pin, state);
     }
 
     void off() {
-        _state = LOW;
-        _blinking = false;
-        digitalWrite(_pin, _state);
+        state = LOW;
+        blinking = false; 
+        digitalWrite(pin, state);
     }
 
     void blink(unsigned long interval = 500) {
-        _blinking = true;
-        _blinkInterval = interval;
+        blinking = true;
+        blinkInterval = interval;
     }
 
     void update() {
-        if (_blinking) {
+        if (blinking) {
             unsigned long currentTime = millis();
-            if (currentTime - _lastToggleTime >= _blinkInterval) {
-                _lastToggleTime = currentTime;
-                _state = !_state;
-                digitalWrite(_pin, _state);
+            if (currentTime - lastToggleTime >= blinkInterval) {
+                lastToggleTime = currentTime;
+                state = !state; // Invierte el estado.
+                digitalWrite(pin, state);
             }
         }
     }
 
 private:
-    int _pin;
-    bool _state;
-    bool _blinking;
-    unsigned long _lastToggleTime;
-    unsigned long _blinkInterval;
+    int pin;
+    bool state;
+    bool blinking;
+    unsigned long lastToggleTime;
+    unsigned long blinkInterval;
 };
 
 class UltrasonicSensor {
 public:
-    UltrasonicSensor(int trigPin, int echoPin) : _trigPin(trigPin), _echoPin(echoPin) {
-        pinMode(_trigPin, OUTPUT);
-        pinMode(_echoPin, INPUT);
+    UltrasonicSensor(int trigPin_arg, int echoPin_arg) : trigPin(trigPin_arg), echoPin(echoPin_arg) {
+        pinMode(trigPin, OUTPUT);
+        pinMode(echoPin, INPUT);
     }
 
     float getDistanceCm() {
-        digitalWrite(_trigPin, LOW);
+        digitalWrite(trigPin, LOW);
         delayMicroseconds(2);
-        digitalWrite(_trigPin, HIGH);
+        digitalWrite(trigPin, HIGH);
         delayMicroseconds(10);
-        digitalWrite(_trigPin, LOW);
+        digitalWrite(trigPin, LOW);
 
-        long duration = pulseIn(_echoPin, HIGH);
+        long duration = pulseIn(echoPin, HIGH);
         if (duration == 0) {
             return 999.0; 
         }
@@ -65,86 +72,95 @@ public:
     }
 
 private:
-    int _trigPin;
-    int _echoPin;
+    int trigPin;
+    int echoPin;
 };
 
 class DistanceAlertSystem {
 public:
     DistanceAlertSystem(int trigPin, int echoPin, int redLedPin, int greenLedPin, int yellowLedPin, int blueLedPin)
-        : _sensor(trigPin, echoPin),
-          _redLed(redLedPin),
-          _greenLed(greenLedPin),
-          _yellowLed(yellowLedPin),
-          _blueLed(blueLedPin) {}
+        : sensor(trigPin, echoPin),
+          redLed(redLedPin),
+          greenLed(greenLedPin),
+          yellowLed(yellowLedPin),
+          blueLed(blueLedPin) {}
 
     void setup() {
         Serial.begin(115200);
     }
 
     void loop() {
-        float currentDistance = _sensor.getDistanceCm();
+        float currentDistance = sensor.getDistanceCm();
+        
         updateLedState(currentDistance);
-        _redLed.update();
-        _greenLed.update();
-        _yellowLed.update();
-        _blueLed.update();
+
+        redLed.update();
+        greenLed.update();
+        yellowLed.update();
+        blueLed.update();
+
         delay(100);
     }
 
 private:
     void updateLedState(float distance) {
+        String status = "Unknown";
+
         if (distance < 20) {
-            _redLed.blink();
-            _greenLed.off();
-            _yellowLed.off();
-            _blueLed.off();
-        } 
+            redLed.blink();
+            greenLed.off();
+            yellowLed.off();
+            blueLed.off();
+            status = " -- Red is blinking";
+        }
         else if (distance >= 20 && distance < 40) {
-            _redLed.off();
-            _greenLed.off();
-            _yellowLed.on();
-            _blueLed.off();
-        } 
+            yellowLed.blink();
+            redLed.off();
+            greenLed.off();
+            blueLed.off();
+            status = " -- Yellow is blinking";
+        }
         else if (distance >= 40 && distance < 80) {
-            _redLed.off();
-            _greenLed.on();
-            _yellowLed.off();
-            _blueLed.off();
-        } 
+            greenLed.on();
+            redLed.off();
+            yellowLed.off();
+            blueLed.off();
+            status = " -- Green is on";
+        }
         else if (distance >= 80 && distance <= 100) {
-            _redLed.off();
-            _greenLed.off();
-            _yellowLed.off();
-            _blueLed.on();
-        } 
-        else {
-            _redLed.on();
-            _yellowLed.on();
-            _greenLed.off();
-            _blueLed.off();
+            blueLed.on();
+            redLed.off();
+            greenLed.off();
+            yellowLed.off();
+            status = " -- Blue is on";
+        }
+        else if (distance <=200){
+            redLed.on();
+            yellowLed.on();
+            greenLed.off();
+            blueLed.off();
+            status = " -- Red & Yellow are on";
+        }
+        else if (status ==  "Out of specified range"){
+            redLed.off();
+            yellowLed.off();
+            greenLed.off();
+            blueLed.off();
         }
         
         Serial.print("Distance: ");
-        Serial.print(distance);
-        Serial.print(" cm, ");
+        Serial.print(distance, 2);
+        Serial.print(" cm, Status: ");
         Serial.println(status);
     }
 
-    UltrasonicSensor _sensor;
-    Led _redLed;
-    Led _greenLed;
-    Led _yellowLed;
-    Led _blueLed;
+    UltrasonicSensor sensor;
+    Led redLed;
+    Led greenLed;
+    Led yellowLed;
+    Led blueLed;
 };
 
-//  PINS
-const int TRIG_PIN = 14;
-const int ECHO_PIN = 27;
-const int RED_LED_PIN = 26;
-const int GREEN_LED_PIN = 33;
-const int YELLOW_LED_PIN = 25;
-const int BLUE_LED_PIN = 32;
 
 DistanceAlertSystem mySystem(TRIG_PIN, ECHO_PIN, RED_LED_PIN, GREEN_LED_PIN, YELLOW_LED_PIN, BLUE_LED_PIN);
 
